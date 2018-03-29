@@ -1,22 +1,36 @@
-import * as application from 'tns-core-modules/application';
-import * as imageSource from 'tns-core-modules/image-source';
+import * as application from "tns-core-modules/application";
+import * as imageSource from "tns-core-modules/image-source";
 import * as fs from "tns-core-modules/file-system";
-import { OptionsCommon } from './interfaces';
-import { Result } from './interfaces';
+import { OptionsCommon } from "./interfaces";
+import { Result } from "./interfaces";
 
-declare module com {
-  export module yalantis {
-    export module ucrop {
+declare namespace com {
+  export namespace yalantis {
+    export namespace ucrop {
       export class UCrop {
         public static REQUEST_CROP;
         public static RESULT_ERROR;
-        public static of(source: android.net.Uri, destination: android.net.Uri): UCrop;
+        public static of(
+          source: android.net.Uri,
+          destination: android.net.Uri
+        ): UCrop;
         public withAspectRatio(x: number, y: number): UCrop;
         public useSourceImageAspectRatio(): UCrop;
         public withMaxResultSize(width: number, height: number): UCrop;
+        public withOptions(options: UCrop.Options): UCrop;
         public start(activity: android.app.Activity): void;
-        public static getOutput(intent: android.content.Intent): android.net.Uri;
-        public static getError(intent: android.content.Intent): java.lang.Throwable;
+        public static getOutput(
+          intent: android.content.Intent
+        ): android.net.Uri;
+        public static getError(
+          intent: android.content.Intent
+        ): java.lang.Throwable;
+      }
+      export namespace UCrop {
+        export class Options {
+          public setCompressionQuality(compressQuality: number);
+          public setMaxBitmapSize(maxBitmapSize: number);
+        }
       }
     }
   }
@@ -27,7 +41,10 @@ var ctx: android.content.Context = application.android.context;
 var UCrop = com.yalantis.ucrop.UCrop;
 
 export class ImageCropper {
-  public show(image: imageSource.ImageSource, options?: OptionsCommon): Promise<Result> {
+  public show(
+    image: imageSource.ImageSource,
+    options?: OptionsCommon
+  ): Promise<Result> {
     return new Promise<Result>((resolve, reject) => {
       try {
         _options = options;
@@ -35,8 +52,11 @@ export class ImageCropper {
           var _that = this;
           var sourcePathTemp: string = this._storeImageSource(image);
           var folder: fs.Folder = fs.knownFolders.temp();
-          var destinationPathTemp: string = fs.path.join(folder.path, "destTemp.jpeg");
-          if (sourcePathTemp == null) {         
+          var destinationPathTemp: string = fs.path.join(
+            folder.path,
+            "destTemp.jpeg"
+          );
+          if (sourcePathTemp == null) {
             this._cleanFiles();
             reject({
               response: "Error",
@@ -44,8 +64,12 @@ export class ImageCropper {
             });
           }
 
-          var sourcePath: android.net.Uri = android.net.Uri.parse("file://" + sourcePathTemp); //Fix our path that comes from {N} file-system.
-          var destinationPath: android.net.Uri = android.net.Uri.parse("file://" + destinationPathTemp); //Fix our path that comes from {N} file-system.
+          var sourcePath: android.net.Uri = android.net.Uri.parse(
+            "file://" + sourcePathTemp
+          ); //Fix our path that comes from {N} file-system.
+          var destinationPath: android.net.Uri = android.net.Uri.parse(
+            "file://" + destinationPathTemp
+          ); //Fix our path that comes from {N} file-system.
 
           var onResult = function(args) {
             var requestCode = args.requestCode;
@@ -53,32 +77,47 @@ export class ImageCropper {
             var data = args.intent;
             // var _that = this;
 
-            if (resultCode == android.app.Activity.RESULT_OK && requestCode == UCrop.REQUEST_CROP) {
+            if (
+              resultCode == android.app.Activity.RESULT_OK &&
+              requestCode == UCrop.REQUEST_CROP
+            ) {
               var resultUri: android.net.Uri = UCrop.getOutput(data);
               var is: imageSource.ImageSource = new imageSource.ImageSource();
-              is.setNativeSource(android.graphics.BitmapFactory.decodeFile(resultUri.getPath()));
+              is.setNativeSource(
+                android.graphics.BitmapFactory.decodeFile(resultUri.getPath())
+              );
               _that._cleanFiles();
-              application.android.off(application.AndroidApplication.activityResultEvent, onResult);
+              application.android.off(
+                application.AndroidApplication.activityResultEvent,
+                onResult
+              );
               resolve({
                 response: "Success",
                 image: is
               });
               return;
-            }
-            else if (resultCode == android.app.Activity.RESULT_CANCELED && requestCode == UCrop.REQUEST_CROP) {
+            } else if (
+              resultCode == android.app.Activity.RESULT_CANCELED &&
+              requestCode == UCrop.REQUEST_CROP
+            ) {
               _that._cleanFiles();
-              application.android.off(application.AndroidApplication.activityResultEvent, onResult);
+              application.android.off(
+                application.AndroidApplication.activityResultEvent,
+                onResult
+              );
               resolve({
                 response: "Cancelled",
                 image: null
               });
               return;
-            }
-            else if (resultCode == UCrop.RESULT_ERROR) {
+            } else if (resultCode == UCrop.RESULT_ERROR) {
               _that._cleanFiles();
               var cropError: java.lang.Throwable = UCrop.getError(data);
               console.log(cropError.getMessage());
-              application.android.off(application.AndroidApplication.activityResultEvent, onResult);
+              application.android.off(
+                application.AndroidApplication.activityResultEvent,
+                onResult
+              );
               reject({
                 response: "Error",
                 image: null
@@ -87,24 +126,29 @@ export class ImageCropper {
             }
           };
 
-          application.android.on(application.AndroidApplication.activityResultEvent, onResult);
+          application.android.on(
+            application.AndroidApplication.activityResultEvent,
+            onResult
+          );
+          let ucropOptions = new com.yalantis.ucrop.UCrop.Options();
+          ucropOptions.setCompressionQuality(100);
+          ucropOptions.setMaxBitmapSize(10000);
 
           if (_options && _options.width && _options.height) {
             var gcd = this._gcd(_options.width, _options.height);
             // console.log("gcd:" + gcd.toString());
-
             UCrop.of(sourcePath, destinationPath)
               .withAspectRatio(_options.width / gcd, _options.height / gcd)
               .withMaxResultSize(_options.width, _options.height)
+              .withOptions(ucropOptions)
               .start(this._getContext());
-          }
-          else {
+          } else {
             UCrop.of(sourcePath, destinationPath)
               // .useSourceImageAspectRatio()
+              .withOptions(ucropOptions)
               .start(this._getContext());
           }
-        }
-        else {
+        } else {
           // application.android.off(application.AndroidApplication.activityResultEvent, this.onResult);
           reject({
             response: "Error",
@@ -135,8 +179,7 @@ export class ImageCropper {
 
     if (image.saveToFile(path, "jpeg", 100)) {
       return path;
-    }
-    else {
+    } else {
       return null;
     }
   }

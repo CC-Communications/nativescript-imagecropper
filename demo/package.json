@@ -1,16 +1,16 @@
 {
   "nativescript": {
     "id": "org.nativescript.demo",
-    "tns-android": {
-      "version": "3.1.1"
-    },
     "tns-ios": {
       "version": "3.1.0"
+    },
+    "tns-android": {
+      "version": "3.4.2"
     }
   },
   "dependencies": {
     "nativescript-camera": "^3.1.2",
-    "nativescript-imagecropper": "../src",
+    "nativescript-imagecropper": "file:///C:\\src\\nativescript-imagecropper\\src",
     "nativescript-permissions": "^1.2.3",
     "nativescript-theme-core": "^1.0.4",
     "nativescript-unit-test-runner": "^0.3.4",
